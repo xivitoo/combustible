@@ -14,10 +14,18 @@ interface TileEntry {
   lastUsed: number;
 }
 
+interface PreparedMarker {
+  station: Station;
+  normX: number;
+  normY: number;
+  price: number;
+  label: string;
+}
+
 const TILE_SIZE = 256;
 const MIN_ZOOM = 5.4;
 const MAX_ZOOM = 18.2;
-const MAX_TILE_CACHE = 260;
+const MAX_TILE_CACHE = 320;
 
 export class CanvasMap {
   private canvas: HTMLCanvasElement;
@@ -33,7 +41,7 @@ export class CanvasMap {
   private dpr = 1;
   private isDark = false;
 
-  private stations: Station[] = [];
+  private preparedMarkers: PreparedMarker[] = [];
   private activeFuel: PrimaryFuelKey = 'g95';
   private selectedId: string | null = null;
   private favoriteIds = new Set<string>();
@@ -47,7 +55,7 @@ export class CanvasMap {
   private rafScheduled = false;
   private animFrameId: number | null = null;
 
-  // Gesture state
+  // Estado de gestos
   private isPanning = false;
   private panStartX = 0;
   private panStartY = 0;
@@ -94,7 +102,7 @@ export class CanvasMap {
 
   public setView(lat: number, lng: number, zoom?: number, animate = false): void {
     if (animate) {
-      this.animateTo(lat, lng, zoom ?? this.zoom, 320);
+      this.animateTo(lat, lng, zoom ?? this.zoom, 300);
       return;
     }
     this.stopAnimations();
@@ -110,17 +118,54 @@ export class CanvasMap {
     return { lat: this.centerLat, lng: this.centerLng, zoom: this.zoom };
   }
 
+  public zoomIn(): void {
+    this.animateTo(this.centerLat, this.centerLng, this.zoom + 1.1, 200);
+  }
+
+  public zoomOut(): void {
+    this.animateTo(this.centerLat, this.centerLng, this.zoom - 1.1, 200);
+  }
+
   public setData(
     stations: Station[],
     activeFuel: PrimaryFuelKey,
     selectedId: string | null,
     favoriteIds: Set<string>
   ): void {
-    this.stations = stations;
     this.activeFuel = activeFuel;
     this.selectedId = selectedId;
     this.favoriteIds = favoriteIds;
-    this.computePriceThresholds();
+
+    const prepared: PreparedMarker[] = [];
+    const prices: number[] = [];
+
+    for (const s of stations) {
+      const p = s.prices[activeFuel];
+      if (typeof p !== 'number' || !Number.isFinite(p) || p <= 0) continue;
+      const norm = this.latLngToNorm(s.lat, s.lng);
+      prepared.push({
+        station: s,
+        normX: norm.x,
+        normY: norm.y,
+        price: p,
+        label: formatShortPrice(p),
+      });
+      prices.push(p);
+    }
+
+    // Ordenar de más baratas a más caras para que el culling espacial priorice las más baratas
+    prepared.sort((a, b) => a.price - b.price);
+    this.preparedMarkers = prepared;
+
+    if (prices.length > 0) {
+      prices.sort((a, b) => a - b);
+      this.p30 = prices[Math.floor((prices.length - 1) * 0.28)];
+      this.p55 = prices[Math.floor((prices.length - 1) * 0.55)];
+      this.p75 = prices[Math.floor((prices.length - 1) * 0.78)];
+    } else {
+      this.p30 = this.p55 = this.p75 = 0;
+    }
+
     this.requestDraw();
   }
 
@@ -144,27 +189,11 @@ export class CanvasMap {
     this.resizeObserver?.disconnect();
   }
 
-  private computePriceThresholds(): void {
-    const prices: number[] = [];
-    for (const s of this.stations) {
-      const p = s.prices[this.activeFuel];
-      if (typeof p === 'number' && p > 0) prices.push(p);
-    }
-    if (prices.length === 0) {
-      this.p30 = this.p55 = this.p75 = 0;
-      return;
-    }
-    prices.sort((a, b) => a - b);
-    this.p30 = prices[Math.floor((prices.length - 1) * 0.28)];
-    this.p55 = prices[Math.floor((prices.length - 1) * 0.55)];
-    this.p75 = prices[Math.floor((prices.length - 1) * 0.78)];
-  }
-
   private resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.width = Math.max(1, rect.width || window.innerWidth);
     this.height = Math.max(1, rect.height || window.innerHeight);
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = Math.round(this.width * this.dpr);
     this.canvas.height = Math.round(this.height * this.dpr);
     this.requestDraw();
@@ -178,7 +207,6 @@ export class CanvasMap {
     return Math.max(-85, Math.min(85, lat));
   }
 
-  // Proyección Web Mercator normalizada [0, 1]
   private latLngToNorm(lat: number, lng: number): { x: number; y: number } {
     const x = (lng + 180) / 360;
     const sinLat = Math.sin((this.clampLat(lat) * Math.PI) / 180);
@@ -195,16 +223,6 @@ export class CanvasMap {
 
   private worldPixelSize(zoom: number): number {
     return TILE_SIZE * Math.pow(2, zoom);
-  }
-
-  private latLngToScreen(lat: number, lng: number): { x: number; y: number } {
-    const worldSize = this.worldPixelSize(this.zoom);
-    const centerNorm = this.latLngToNorm(this.centerLat, this.centerLng);
-    const ptNorm = this.latLngToNorm(lat, lng);
-    return {
-      x: this.width / 2 + (ptNorm.x - centerNorm.x) * worldSize,
-      y: this.height / 2 + (ptNorm.y - centerNorm.y) * worldSize,
-    };
   }
 
   private screenToNorm(sx: number, sy: number, zoom = this.zoom): { x: number; y: number } {
@@ -278,7 +296,7 @@ export class CanvasMap {
     const startZoom = this.zoom;
     const targetZoom = this.clampZoom(startZoom + 1.65);
     const startTime = performance.now();
-    const durationMs = 240;
+    const durationMs = 220;
 
     const step = (now: number) => {
       const t = Math.min(1, (now - startTime) / durationMs);
@@ -311,8 +329,8 @@ export class CanvasMap {
     let curVy = vy * 16;
 
     const step = () => {
-      curVx *= 0.92;
-      curVy *= 0.92;
+      curVx *= 0.91;
+      curVy *= 0.91;
       if (Math.hypot(curVx, curVy) < 0.35) {
         this.animFrameId = null;
         return;
@@ -329,7 +347,7 @@ export class CanvasMap {
     this.resizeObserver.observe(this.canvas);
     window.addEventListener('resize', () => this.resize());
 
-    // Touch Events para gestos móviles ultra-suaves (pinch + pan + doble toque)
+    // Gestos táctiles nativos (pinch + pan + doble toque)
     this.canvas.addEventListener(
       'touchstart',
       (e) => {
@@ -447,7 +465,6 @@ export class CanvasMap {
 
     this.canvas.addEventListener('touchend', (e) => {
       if (e.touches.length === 1 && this.isPinching) {
-        // Transición limpia de 2 dedos a 1 dedo sin saltos
         const rect = this.canvas.getBoundingClientRect();
         const t = e.touches[0];
         this.isPinching = false;
@@ -493,7 +510,7 @@ export class CanvasMap {
       }
     });
 
-    // Mouse / Desktop events
+    // Eventos de ratón en escritorio
     this.canvas.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
       this.stopAnimations();
@@ -569,7 +586,8 @@ export class CanvasMap {
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        const delta = -e.deltaY * 0.0022;
+        const clampedDelta = Math.max(-140, Math.min(140, e.deltaY));
+        const delta = -clampedDelta * 0.0024;
         this.zoomAroundPoint(this.zoom + delta, x, y);
         this.requestDraw();
       },
@@ -590,23 +608,24 @@ export class CanvasMap {
   }
 
   private hitTestStation(sx: number, sy: number): Station | null {
-    let best: Station | null = null;
-    let bestDist = 30; // Radio generoso (~60px área táctil)
+    const worldSize = this.worldPixelSize(this.zoom);
+    const centerNorm = this.latLngToNorm(this.centerLat, this.centerLng);
+    const halfW = this.width / 2;
+    const halfH = this.height / 2;
 
-    for (const s of this.stations) {
-      const pos = this.latLngToScreen(s.lat, s.lng);
-      if (
-        pos.x < -30 ||
-        pos.x > this.width + 30 ||
-        pos.y < -30 ||
-        pos.y > this.height + 30
-      ) {
+    let best: Station | null = null;
+    let bestDist = 30; // ~60px diámetro táctil
+
+    for (const m of this.preparedMarkers) {
+      const px = halfW + (m.normX - centerNorm.x) * worldSize;
+      const py = halfH + (m.normY - centerNorm.y) * worldSize;
+      if (px < -30 || px > this.width + 30 || py < -30 || py > this.height + 30) {
         continue;
       }
-      const d = Math.hypot(pos.x - sx, pos.y - sy);
+      const d = Math.hypot(px - sx, py - sy);
       if (d <= bestDist) {
         bestDist = d;
-        best = s;
+        best = m.station;
       }
     }
     return best;
@@ -632,7 +651,6 @@ export class CanvasMap {
     }
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     const entry: TileEntry = {
       img,
       loaded: false,
@@ -660,7 +678,7 @@ export class CanvasMap {
     const entries = [...this.tiles.entries()].sort(
       (a, b) => a[1].lastUsed - b[1].lastUsed
     );
-    const toDelete = entries.length - MAX_TILE_CACHE + 30;
+    const toDelete = entries.length - MAX_TILE_CACHE + 40;
     for (let i = 0; i < toDelete && i < entries.length; i++) {
       this.tiles.delete(entries[i][0]);
     }
@@ -677,15 +695,51 @@ export class CanvasMap {
 
   private getMarkerColor(price: number): { fill: string; text: string } {
     if (this.isDark) {
-      if (price <= this.p30) return { fill: '#34d399', text: '#052e16' }; // Verde pastel
-      if (price <= this.p55) return { fill: '#7dd3fc', text: '#082f49' }; // Azul pastel
-      if (price <= this.p75) return { fill: '#fcd34d', text: '#451a03' }; // Ámbar pastel
-      return { fill: '#fda4af', text: '#4c0519' }; // Rojo pastel
+      // Tonos pastel suaves para modo oscuro
+      if (price <= this.p30) return { fill: '#6ee7b7', text: '#064e3b' }; // Menta pastel
+      if (price <= this.p55) return { fill: '#93c5fd', text: '#1e3a8a' }; // Azul cielo pastel
+      if (price <= this.p75) return { fill: '#fde68a', text: '#78350f' }; // Ámbar pastel
+      return { fill: '#fda4af', text: '#881337' }; // Rosa coral pastel
     }
-    if (price <= this.p30) return { fill: '#059669', text: '#ffffff' }; // Verde
-    if (price <= this.p55) return { fill: '#0284c7', text: '#ffffff' }; // Azul
-    if (price <= this.p75) return { fill: '#d97706', text: '#ffffff' }; // Ámbar
-    return { fill: '#e11d48', text: '#ffffff' }; // Rojo
+    if (price <= this.p30) return { fill: '#059669', text: '#ffffff' };
+    if (price <= this.p55) return { fill: '#0284c7', text: '#ffffff' };
+    if (price <= this.p75) return { fill: '#d97706', text: '#ffffff' };
+    return { fill: '#e11d48', text: '#ffffff' };
+  }
+
+  private drawTileWithFallback(
+    ctx: CanvasRenderingContext2D,
+    tileZoom: number,
+    wrappedX: number,
+    ty: number,
+    dx: number,
+    dy: number,
+    size: number
+  ): void {
+    const tile = this.getTile(tileZoom, wrappedX, ty);
+    if (tile.loaded) {
+      ctx.drawImage(tile.img, dx, dy, size + 0.75, size + 0.75);
+      return;
+    }
+
+    // Buscar hasta 3 niveles padre cacheados para evitar cuadros vacíos durante zoom/pan rápido
+    for (let step = 1; step <= 3; step++) {
+      const parentZ = tileZoom - step;
+      if (parentZ < 2) break;
+      const factor = 1 << step;
+      const parentX = Math.floor(wrappedX / factor);
+      const parentY = Math.floor(ty / factor);
+      const parentKey = `${this.isDark ? 'd' : 'l'}:${parentZ}/${parentX}/${parentY}`;
+      const parent = this.tiles.get(parentKey);
+      if (parent?.loaded) {
+        const subW = parent.img.width / factor;
+        const subH = parent.img.height / factor;
+        const sx = (wrappedX % factor) * subW;
+        const sy = (ty % factor) * subH;
+        ctx.drawImage(parent.img, sx, sy, subW, subH, dx, dy, size + 0.75, size + 0.75);
+        return;
+      }
+    }
   }
 
   private draw(): void {
@@ -693,12 +747,12 @@ export class CanvasMap {
     ctx.save();
     ctx.scale(this.dpr, this.dpr);
 
-    // Fondo base antes de teselas
-    ctx.fillStyle = this.isDark ? '#141d21' : '#eae6df';
+    // Fondo suave (pastel oscuro o neutro Voyager)
+    ctx.fillStyle = this.isDark ? '#252d3d' : '#eae6df';
     ctx.fillRect(0, 0, this.width, this.height);
 
-    // 1. Dibujar teselas CartoDB
-    const tileZoom = Math.max(0, Math.min(18, Math.round(this.zoom)));
+    // 1. Teselas CartoDB sin ctx.filter (máximo rendimiento 60fps)
+    const tileZoom = Math.max(0, Math.min(18, Math.floor(this.zoom + 0.15)));
     const scaleFactor = Math.pow(2, this.zoom - tileZoom);
     const scaledTileSize = TILE_SIZE * scaleFactor;
     const totalTiles = Math.pow(2, tileZoom);
@@ -717,73 +771,43 @@ export class CanvasMap {
       Math.floor((this.height - originY) / scaledTileSize) + 1
     );
 
-    if (this.isDark) {
-      ctx.filter = 'brightness(1.18) contrast(0.90) saturate(1.12)';
-    }
-
     for (let ty = minTileY; ty <= maxTileY; ty++) {
       for (let tx = minTileX; tx <= maxTileX; tx++) {
         const wrappedX = ((tx % totalTiles) + totalTiles) % totalTiles;
         const dx = originX + tx * scaledTileSize;
         const dy = originY + ty * scaledTileSize;
-        const tile = this.getTile(tileZoom, wrappedX, ty);
-
-        if (tile.loaded) {
-          ctx.drawImage(
-            tile.img,
-            dx,
-            dy,
-            scaledTileSize + 0.6,
-            scaledTileSize + 0.6
-          );
-        } else if (tileZoom > 2) {
-          // Fallback suave desde tesela padre si ya está cacheada
-          const parentZ = tileZoom - 1;
-          const parentX = Math.floor(wrappedX / 2);
-          const parentY = Math.floor(ty / 2);
-          const parentKey = `${this.isDark ? 'd' : 'l'}:${parentZ}/${parentX}/${parentY}`;
-          const parent = this.tiles.get(parentKey);
-          if (parent?.loaded) {
-            const subX = (wrappedX % 2) * (parent.img.width / 2);
-            const subY = (ty % 2) * (parent.img.height / 2);
-            ctx.drawImage(
-              parent.img,
-              subX,
-              subY,
-              parent.img.width / 2,
-              parent.img.height / 2,
-              dx,
-              dy,
-              scaledTileSize + 0.6,
-              scaledTileSize + 0.6
-            );
-          }
-        }
+        this.drawTileWithFallback(ctx, tileZoom, wrappedX, ty, dx, dy, scaledTileSize);
       }
     }
 
-    ctx.filter = 'none';
-
-    // Suavizado pastel para Dark Matter en modo oscuro
+    // Baño pastel suave en modo oscuro mediante un único rectángulo compuesto (60fps)
     if (this.isDark) {
-      ctx.fillStyle = 'rgba(24, 38, 44, 0.22)';
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = 'rgba(72, 88, 118, 0.28)';
       ctx.fillRect(0, 0, this.width, this.height);
+      ctx.globalCompositeOperation = 'source-over';
     }
+
+    const worldSize = this.worldPixelSize(this.zoom);
+    const halfW = this.width / 2;
+    const halfH = this.height / 2;
 
     // 2. Ubicación GPS del usuario
     if (this.userLocation) {
-      const up = this.latLngToScreen(this.userLocation.lat, this.userLocation.lng);
-      if (up.x >= -40 && up.x <= this.width + 40 && up.y >= -40 && up.y <= this.height + 40) {
+      const un = this.latLngToNorm(this.userLocation.lat, this.userLocation.lng);
+      const ux = halfW + (un.x - centerNorm.x) * worldSize;
+      const uy = halfH + (un.y - centerNorm.y) * worldSize;
+      if (ux >= -40 && ux <= this.width + 40 && uy >= -40 && uy <= this.height + 40) {
         ctx.beginPath();
-        ctx.arc(up.x, up.y, 18, 0, Math.PI * 2);
+        ctx.arc(ux, uy, 17, 0, Math.PI * 2);
         ctx.fillStyle = this.isDark
-          ? 'rgba(52, 211, 153, 0.22)'
+          ? 'rgba(110, 231, 183, 0.25)'
           : 'rgba(16, 185, 129, 0.22)';
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(up.x, up.y, 7.5, 0, Math.PI * 2);
-        ctx.fillStyle = this.isDark ? '#34d399' : '#059669';
+        ctx.arc(ux, uy, 7.5, 0, Math.PI * 2);
+        ctx.fillStyle = this.isDark ? '#6ee7b7' : '#059669';
         ctx.fill();
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = '#ffffff';
@@ -791,70 +815,64 @@ export class CanvasMap {
       }
     }
 
-    // 3. Estaciones visibles en pantalla
+    // 3. Estaciones visibles (culling espacial en zoom lejano para fluidez total)
     const visible: Array<{
-      station: Station;
+      marker: PreparedMarker;
       x: number;
       y: number;
-      price: number;
       isFav: boolean;
       isSelected: boolean;
     }> = [];
 
-    for (const st of this.stations) {
-      const price = st.prices[this.activeFuel];
-      if (typeof price !== 'number' || price <= 0) continue;
-      const pos = this.latLngToScreen(st.lat, st.lng);
-      if (
-        pos.x < -36 ||
-        pos.x > this.width + 36 ||
-        pos.y < -36 ||
-        pos.y > this.height + 36
-      ) {
+    const useGridCull = this.zoom < 11.2;
+    const cellSize = 18;
+    const seenCells = useGridCull ? new Set<number>() : null;
+
+    // preparedMarkers ya viene ordenado de más baratas a más caras
+    for (const m of this.preparedMarkers) {
+      const px = halfW + (m.normX - centerNorm.x) * worldSize;
+      const py = halfH + (m.normY - centerNorm.y) * worldSize;
+      if (px < -32 || px > this.width + 32 || py < -32 || py > this.height + 32) {
         continue;
       }
-      visible.push({
-        station: st,
-        x: pos.x,
-        y: pos.y,
-        price,
-        isFav: this.favoriteIds.has(st.id),
-        isSelected: st.id === this.selectedId,
-      });
+
+      const isSelected = m.station.id === this.selectedId;
+      const isFav = this.favoriteIds.has(m.station.id);
+
+      if (seenCells && !isSelected && !isFav) {
+        const cx = Math.floor(px / cellSize);
+        const cy = Math.floor(py / cellSize);
+        const key = (cx + 1000) * 10000 + (cy + 1000);
+        if (seenCells.has(key)) continue;
+        seenCells.add(key);
+      }
+
+      visible.push({ marker: m, x: px, y: py, isFav, isSelected });
     }
 
-    // Ordenar para dibujar primero caras, luego baratas, favoritas y seleccionada arriba
+    // Dibujar primero caras, luego baratas, favoritas y seleccionada al final
     visible.sort((a, b) => {
       if (a.isSelected !== b.isSelected) return a.isSelected ? 1 : -1;
       if (a.isFav !== b.isFav) return a.isFav ? 1 : -1;
-      return b.price - a.price;
+      return b.marker.price - a.marker.price;
     });
 
     const dotRadius =
-      this.zoom >= 13 ? 10.5 : this.zoom >= 11 ? 9 : this.zoom >= 9.5 ? 7.5 : 6;
+      this.zoom >= 13 ? 10.5 : this.zoom >= 11 ? 9 : this.zoom >= 9.5 ? 7.5 : 6.5;
 
-    // Dibujar puntos de gasolineras grandes y legibles
     for (const item of visible) {
-      const color = this.getMarkerColor(item.price);
+      const color = this.getMarkerColor(item.marker.price);
       const r = item.isSelected ? dotRadius + 3.5 : item.isFav ? dotRadius + 1.5 : dotRadius;
 
-      // Sombra sutil
-      ctx.beginPath();
-      ctx.arc(item.x, item.y + 1.5, r + 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = this.isDark ? 'rgba(0,0,0,0.45)' : 'rgba(15,23,42,0.18)';
-      ctx.fill();
-
-      // Halo exterior si está seleccionada
       if (item.isSelected) {
         ctx.beginPath();
         ctx.arc(item.x, item.y, r + 6, 0, Math.PI * 2);
         ctx.fillStyle = this.isDark
           ? 'rgba(248, 250, 252, 0.25)'
-          : 'rgba(15, 23, 42, 0.18)';
+          : 'rgba(15, 23, 42, 0.16)';
         ctx.fill();
       }
 
-      // Círculo principal
       ctx.beginPath();
       ctx.arc(item.x, item.y, r, 0, Math.PI * 2);
       ctx.fillStyle = color.fill;
@@ -865,11 +883,10 @@ export class CanvasMap {
           ? '#ffffff'
           : '#0f172a'
         : this.isDark
-          ? '#0b1311'
+          ? '#222938'
           : '#ffffff';
       ctx.stroke();
 
-      // Marca interior si es favorita
       if (item.isFav) {
         ctx.beginPath();
         ctx.arc(item.x, item.y, Math.max(2.6, r * 0.34), 0, Math.PI * 2);
@@ -878,30 +895,29 @@ export class CanvasMap {
       }
     }
 
-    // 4. Etiquetas de precio junto al punto al hacer zoom (sin solapamientos)
+    // 4. Etiquetas de precio junto al punto al hacer zoom (con anti-solapamiento)
     const showZoomLabels = this.zoom >= 11.4;
     if (showZoomLabels || this.selectedId || this.favoriteIds.size > 0) {
       const labelCandidates = visible
         .filter(
-          (v) =>
-            v.isSelected ||
-            (v.isFav && this.zoom >= 9.6) ||
-            showZoomLabels
+          (v) => v.isSelected || (v.isFav && this.zoom >= 9.5) || showZoomLabels
         )
         .sort((a, b) => {
           if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1;
           if (a.isFav !== b.isFav) return a.isFav ? -1 : 1;
-          return a.price - b.price;
+          return a.marker.price - b.marker.price;
         });
 
       const occupied: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
       ctx.font = '600 11.5px "JetBrains Mono", monospace';
       ctx.textBaseline = 'middle';
 
+      let drawnLabels = 0;
       for (const item of labelCandidates) {
-        const text = formatShortPrice(item.price);
-        const textWidth = ctx.measureText(text).width;
-        const boxW = textWidth + 12;
+        if (drawnLabels >= 38 && !item.isSelected && !item.isFav) break;
+
+        const text = item.marker.label;
+        const boxW = text.length * 7.2 + 12;
         const boxH = 22;
         const r = item.isSelected ? dotRadius + 3.5 : dotRadius;
         const bx = Math.round(item.x + r + 5);
@@ -912,20 +928,27 @@ export class CanvasMap {
         }
 
         const collides = occupied.some(
-          (o) => !(bx + boxW + 4 < o.x1 || bx - 4 > o.x2 || by + boxH + 3 < o.y1 || by - 3 > o.y2)
+          (o) =>
+            !(
+              bx + boxW + 4 < o.x1 ||
+              bx - 4 > o.x2 ||
+              by + boxH + 3 < o.y1 ||
+              by - 3 > o.y2
+            )
         );
         if (collides && !item.isSelected) continue;
 
         occupied.push({ x1: bx, y1: by, x2: bx + boxW, y2: by + boxH });
+        drawnLabels++;
 
-        const color = this.getMarkerColor(item.price);
+        const color = this.getMarkerColor(item.marker.price);
         this.drawRoundedRect(ctx, bx, by, boxW, boxH, 7);
         ctx.fillStyle = item.isSelected
           ? this.isDark
             ? '#f8fafc'
             : '#0f172a'
           : this.isDark
-            ? 'rgba(17, 26, 29, 0.92)'
+            ? 'rgba(34, 41, 56, 0.94)'
             : 'rgba(255, 255, 255, 0.95)';
         ctx.fill();
 
@@ -933,7 +956,7 @@ export class CanvasMap {
         ctx.strokeStyle = item.isSelected
           ? color.fill
           : this.isDark
-            ? 'rgba(255,255,255,0.16)'
+            ? 'rgba(255,255,255,0.18)'
             : 'rgba(15,23,42,0.12)';
         ctx.stroke();
 
@@ -948,11 +971,11 @@ export class CanvasMap {
       }
     }
 
-    // Atribución discreta abajo a la derecha (requerida por CartoDB)
+    // Atribución discreta abajo a la izquierda
     ctx.font = '500 10px "Plus Jakarta Sans", sans-serif';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = this.isDark
-      ? 'rgba(226, 232, 240, 0.45)'
+      ? 'rgba(226, 232, 240, 0.52)'
       : 'rgba(15, 23, 42, 0.45)';
     ctx.fillText('© CARTO © OpenStreetMap', 10, this.height - 8);
 

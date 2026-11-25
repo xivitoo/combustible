@@ -143,9 +143,32 @@ async function main() {
     };
 
     fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output), 'utf8');
+
+    // Guardar archivos por provincia para carga instantánea sin descargar toda España
+    const provDir = path.join(ROOT_DIR, 'public', 'data', 'provinces');
+    fs.mkdirSync(provDir, { recursive: true });
+    const byProvince = new Map();
+    for (const st of stations) {
+      if (!byProvince.has(st.p)) byProvince.set(st.p, []);
+      byProvince.get(st.p).push(st);
+    }
+    for (const [provId, provStations] of byProvince.entries()) {
+      fs.writeFileSync(
+        path.join(provDir, `${provId}.json`),
+        JSON.stringify({
+          fecha: output.fecha,
+          generatedAt: output.generatedAt,
+          provincia: provId,
+          count: provStations.length,
+          stations: provStations,
+        }),
+        'utf8'
+      );
+    }
+
     const sizeKb = Math.round(fs.statSync(OUTPUT_PATH).size / 1024);
     console.log(
-      `[update-stations] Guardadas ${stations.length} estaciones (${sizeKb} KB) en public/data/stations.json`
+      `[update-stations] Guardadas ${stations.length} estaciones (${sizeKb} KB) y ${byProvince.size} provincias en public/data/`
     );
   } catch (err) {
     if (fs.existsSync(OUTPUT_PATH)) {

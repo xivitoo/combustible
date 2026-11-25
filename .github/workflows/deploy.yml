@@ -40,7 +40,7 @@ jobs:
         id: cache-stations
         uses: actions/cache@v4
         with:
-          path: public/data/stations.json
+          path: public/data
           key: stations-json-${{ steps.cache-bucket.outputs.bucket }}
           restore-keys: |
             stations-json-

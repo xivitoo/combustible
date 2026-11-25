@@ -259,8 +259,27 @@ export async function loadProvinceStations(provinceId: string): Promise<Province
 export async function loadStaticBackupProvince(provinceId: string): Promise<ProvinceLoadResult> {
   const normalizedProv = provinceId.padStart(2, '0');
   const base = import.meta.env.BASE_URL || '/';
-  const url = `${base}data/stations.json`;
-  const payload = await fetchJsonWithTimeout(url, 15_000);
+
+  try {
+    const provPayload = await fetchJsonWithTimeout(
+      `${base}data/provinces/${normalizedProv}.json`,
+      10_000
+    );
+    const { stations, sourceDate } = parseStationsPayload(provPayload, normalizedProv);
+    if (stations.length > 0) {
+      return {
+        mode: 'offline-backup',
+        stations,
+        fetchedAt: Date.now(),
+        sourceDate,
+        ageMinutes: null,
+      };
+    }
+  } catch {
+    // Fallback al archivo completo si falta el archivo provincial
+  }
+
+  const payload = await fetchJsonWithTimeout(`${base}data/stations.json`, 15_000);
   const { stations, sourceDate } = parseStationsPayload(payload, normalizedProv);
   return {
     mode: 'offline-backup',
