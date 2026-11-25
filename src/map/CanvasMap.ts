@@ -5,6 +5,7 @@ export interface CanvasMapOptions {
   canvas: HTMLCanvasElement;
   onSelectStation: (station: Station) => void;
   onMapInteract: () => void;
+  paused?: boolean;
 }
 
 interface TileEntry {
@@ -40,6 +41,7 @@ export class CanvasMap {
   private height = 667;
   private dpr = 1;
   private isDark = false;
+  private paused = false;
 
   private preparedMarkers: PreparedMarker[] = [];
   private activeFuel: PrimaryFuelKey = 'g95';
@@ -87,9 +89,18 @@ export class CanvasMap {
     this.ctx = context;
     this.onSelectStation = options.onSelectStation;
     this.onMapInteract = options.onMapInteract;
+    this.paused = Boolean(options.paused);
 
     this.resize();
     this.bindEvents();
+  }
+
+  public setPaused(paused: boolean): void {
+    if (this.paused === paused) return;
+    this.paused = paused;
+    if (!paused) {
+      this.requestDraw();
+    }
   }
 
   public setTheme(isDark: boolean): void {
@@ -750,6 +761,11 @@ export class CanvasMap {
     // Fondo suave (pastel oscuro o neutro Voyager)
     ctx.fillStyle = this.isDark ? '#252d3d' : '#eae6df';
     ctx.fillRect(0, 0, this.width, this.height);
+
+    if (this.paused) {
+      ctx.restore();
+      return;
+    }
 
     // 1. Teselas CartoDB sin ctx.filter (máximo rendimiento 60fps)
     const tileZoom = Math.max(0, Math.min(18, Math.floor(this.zoom + 0.15)));

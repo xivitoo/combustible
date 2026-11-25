@@ -139,6 +139,7 @@ export class AppController {
         canvas: this.mapCanvasEl,
         onSelectStation: (station) => this.selectStation(station, true),
         onMapInteract: () => this.handleMapInteract(),
+        paused: true,
       });
       this.map.setTheme(this.isDark);
     }
@@ -157,6 +158,7 @@ export class AppController {
       this.activeProvince = savedProvince;
       this.showProvinceGate = false;
       this.renderProvinceGate();
+      this.map?.setPaused(false);
       this.map?.setView(savedProvince.lat, savedProvince.lng, savedProvince.zoom, false);
       await this.loadActiveProvince();
       this.isBootstrapping = false;
@@ -166,7 +168,6 @@ export class AppController {
       this.renderBootOverlay();
       this.showProvinceGate = true;
       this.renderProvinceGate();
-      this.map?.setView(40.2, -3.7, 6.2, false);
     }
 
     window.addEventListener('online', () => {
@@ -241,6 +242,7 @@ export class AppController {
       }
     }
     this.selectStation(station, true);
+    this.map?.setPaused(false);
     this.map?.setView(station.lat, station.lng, 14.2, true);
   }
 
@@ -290,6 +292,7 @@ export class AppController {
     this.renderTopControls();
     this.renderTabBars();
 
+    this.map?.setPaused(false);
     if (
       this.userLocation &&
       findNearestProvince(this.userLocation.lat, this.userLocation.lng).id === province.id

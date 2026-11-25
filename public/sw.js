@@ -2,8 +2,6 @@ const BASE_PATH = __BASE_PATH_SAFE__();
 const CACHE_VERSION = __BUILD_VERSION_SAFE__();
 const SHELL_CACHE = `combustible-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = 'combustible-runtime-v1';
-const TILES_CACHE = 'combustible-tiles-v1';
-const MAX_TILE_ENTRIES = 320;
 
 function __BASE_PATH_SAFE__() {
   const raw = '__BASE_PATH__';
@@ -54,7 +52,8 @@ self.addEventListener('activate', (event) => {
           keys
             .filter(
               (k) =>
-                k.startsWith('combustible-shell-') && k !== SHELL_CACHE
+                (k.startsWith('combustible-shell-') && k !== SHELL_CACHE) ||
+                k === 'combustible-tiles-v1'
             )
             .map((k) => caches.delete(k))
         )
@@ -63,28 +62,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-async function trimCache(cacheName, maxEntries) {
-  const cache = await caches.open(cacheName);
-  const keys = await cache.keys();
-  if (keys.length > maxEntries) {
-    const removeCount = keys.length - maxEntries;
-    for (let i = 0; i < removeCount; i++) {
-      await cache.delete(keys[i]);
-    }
-  }
-}
-
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
 
-  // Nunca interceptar consultas de precios Online para respetar la lógica estricta de 10 minutos
+  // Nunca interceptar consultas de precios Online ni teselas CartoDB
+  // (CartoDB ya envía Cache-Control immutable de 30 días y evitará net::ERR_FAILED si se cancela una tesela)
   if (
     url.pathname.includes('/api/fuel/') ||
     url.hostname.includes('workers.dev') ||
-    url.hostname.includes('minetur.gob.es')
+    url.hostname.includes('minetur.gob.es') ||
+    url.hostname.endsWith('basemaps.cartocdn.com')
   ) {
     return;
   }
@@ -107,27 +97,6 @@ self.addEventListener('fetch', (event) => {
             (await caches.match(BASE_PATH));
           return cached || Response.error();
         })
-    );
-    return;
-  }
-
-  // Teselas CartoDB: CacheFirst con límite de almacenamiento
-  if (url.hostname.endsWith('basemaps.cartocdn.com')) {
-    event.respondWith(
-      caches.open(TILES_CACHE).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) return cached;
-        try {
-          const res = await fetch(request);
-          if (res.ok || res.type === 'opaque') {
-            cache.put(request, res.clone());
-            trimCache(TILES_CACHE, MAX_TILE_ENTRIES);
-          }
-          return res;
-        } catch {
-          return cached || Response.error();
-        }
-      })
     );
     return;
   }
