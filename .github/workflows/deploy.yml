@@ -1,0 +1,80 @@
+name: Build and Deploy Combustible by XivIoT
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Actualización programada cada 6 horas del respaldo estático
+    - cron: '15 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Compute 6h cache bucket for stations backup
+        id: cache-bucket
+        run: |
+          BUCKET=$(date -u +"%Y-%m-%d-%H" | awk -F- '{printf "%s-%s-%s-%02d", $1, $2, $3, int($4/6)*6}')
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached stations backup
+        id: cache-stations
+        uses: actions/cache@v4
+        with:
+          path: public/data/stations.json
+          key: stations-json-${{ steps.cache-bucket.outputs.bucket }}
+          restore-keys: |
+            stations-json-
+
+      - name: Update static stations backup if needed
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.cache-stations.outputs.cache-hit != 'true'
+        run: node scripts/update-stations.mjs --if-stale
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build production bundle for GitHub Pages
+        env:
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/combustible/' }}
+          VITE_CARTODB_API_KEY: ${{ secrets.VITE_CARTODB_API_KEY || vars.VITE_CARTODB_API_KEY || '' }}
+          VITE_FUEL_PROXY_URL: ${{ secrets.VITE_FUEL_PROXY_URL || vars.VITE_FUEL_PROXY_URL || '' }}
+        run: npm run build
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
