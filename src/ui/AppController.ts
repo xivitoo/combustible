@@ -98,6 +98,8 @@ export class AppController {
   private sheetHeaderMetaEl: HTMLElement | null = null;
   private provinceModalEl: HTMLElement | null = null;
   private iosModalEl: HTMLElement | null = null;
+  private bootOverlayEl: HTMLElement | null = null;
+  private isBootstrapping = false;
 
   private sheetDragStartY = 0;
   private sheetDragCurrentDelta = 0;
@@ -112,6 +114,17 @@ export class AppController {
   }
 
   public async mount(): Promise<void> {
+    const params = new URLSearchParams(window.location.search);
+    const deepStationId = params.get('estacion')?.trim() || '';
+
+    const savedProvinceId = localStorage.getItem(STORAGE_PROVINCE_KEY);
+    const savedProvince = getProvinceById(savedProvinceId);
+
+    if (savedProvince || deepStationId) {
+      this.activeProvince = savedProvince || null;
+      this.isBootstrapping = true;
+    }
+
     this.renderShell();
     this.bindShellEvents();
 
@@ -130,24 +143,13 @@ export class AppController {
       this.map.setTheme(this.isDark);
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const deepStationId = params.get('estacion')?.trim() || '';
-
-    const savedProvinceId = localStorage.getItem(STORAGE_PROVINCE_KEY);
-    const savedProvince = getProvinceById(savedProvinceId);
-
-    const gpsGranted = await isGeolocationGranted();
-    if (gpsGranted) {
-      try {
-        this.userLocation = await requestCurrentPosition(5000);
-        this.map?.setUserLocation(this.userLocation);
-      } catch {
-        // Continuar sin GPS
-      }
-    }
+    // Comprobar geolocalización en segundo plano sin bloquear la carga inicial
+    this.initGrantedGpsInBackground(Boolean(deepStationId));
 
     if (deepStationId) {
       await this.handleDeepLinkStation(deepStationId, savedProvince);
+      this.isBootstrapping = false;
+      this.renderBootOverlay();
       return;
     }
 
@@ -155,13 +157,13 @@ export class AppController {
       this.activeProvince = savedProvince;
       this.showProvinceGate = false;
       this.renderProvinceGate();
-      if (this.userLocation) {
-        this.map?.setView(this.userLocation.lat, this.userLocation.lng, 12.4, false);
-      } else {
-        this.map?.setView(savedProvince.lat, savedProvince.lng, savedProvince.zoom, false);
-      }
+      this.map?.setView(savedProvince.lat, savedProvince.lng, savedProvince.zoom, false);
       await this.loadActiveProvince();
+      this.isBootstrapping = false;
+      this.renderBootOverlay();
     } else {
+      this.isBootstrapping = false;
+      this.renderBootOverlay();
       this.showProvinceGate = true;
       this.renderProvinceGate();
       this.map?.setView(40.2, -3.7, 6.2, false);
@@ -177,6 +179,24 @@ export class AppController {
         this.loadActiveProvince();
       }
     });
+  }
+
+  private async initGrantedGpsInBackground(isDeepLink: boolean): Promise<void> {
+    const gpsGranted = await isGeolocationGranted();
+    if (!gpsGranted) return;
+    try {
+      const coords = await requestCurrentPosition(5000);
+      this.userLocation = coords;
+      this.map?.setUserLocation(coords);
+      if (!isDeepLink && !this.selectedStation && this.activeProvince) {
+        this.map?.setView(coords.lat, coords.lng, 12.4, true);
+      }
+      if (!this.isBootstrapping && !this.selectedStation) {
+        this.renderSheetContent();
+      }
+    } catch {
+      // Continuar sin GPS
+    }
   }
 
   private async handleDeepLinkStation(
@@ -495,6 +515,9 @@ export class AppController {
 
         <!-- Guía de instalación iOS Safari -->
         <div id="ios-install-modal" class="hidden"></div>
+
+        <!-- Pantalla de carga inicial al recuperar provincia guardada -->
+        <div id="boot-loading-overlay" class="hidden"></div>
       </div>
     `;
 
@@ -506,11 +529,38 @@ export class AppController {
     this.sheetHeaderMetaEl = this.root.querySelector('#sheet-header-meta');
     this.provinceModalEl = this.root.querySelector('#province-gate');
     this.iosModalEl = this.root.querySelector('#ios-install-modal');
+    this.bootOverlayEl = this.root.querySelector('#boot-loading-overlay');
 
     this.applySheetTransform();
+    this.renderBootOverlay();
     this.renderTopControls();
     this.renderTabBars();
     this.renderSheetContent();
+  }
+
+  private renderBootOverlay(): void {
+    if (!this.bootOverlayEl) return;
+    if (!this.isBootstrapping) {
+      this.bootOverlayEl.className = 'hidden';
+      this.bootOverlayEl.innerHTML = '';
+      return;
+    }
+
+    const subtitle = this.activeProvince
+      ? `Cargando ${escapeHtml(this.activeProvince.name)}…`
+      : 'Cargando estación…';
+
+    this.bootOverlayEl.className =
+      'fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-50/96 backdrop-blur-md dark:bg-[#1e2432]/96';
+    this.bootOverlayEl.innerHTML = `
+      <div class="flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg">
+        ${BRAND_LOGO_SVG.replace('class="h-8 w-8"', 'class="h-14 w-14"')}
+      </div>
+      <div class="flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <span class="h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent dark:border-emerald-300 dark:border-t-transparent"></span>
+        <span>${subtitle}</span>
+      </div>
+    `;
   }
 
   private bindShellEvents(): void {
