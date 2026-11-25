@@ -1647,18 +1647,19 @@ export class AppController {
           </div>
           <div class="mt-2 flex flex-wrap gap-1.5">
             ${QUICK_FAVORITE_TAGS.map((tag) => {
-              const activeTag = fav?.tag === tag;
+              const plain = tag.replace(/^[^\s]+\s+/, '');
+              const activeTag = fav?.tag === tag || fav?.tag === plain;
               return `
                 <button
                   type="button"
-                  data-quick-tag="${tag}"
+                  data-quick-tag="${escapeHtml(tag)}"
                   class="min-h-[40px] rounded-xl px-3.5 text-xs font-semibold transition ${
                     activeTag
                       ? 'bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-300 dark:text-slate-900 dark:hover:bg-emerald-200'
                       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:bg-slate-200/70 dark:border-[#3c485f] dark:bg-[#242c3c] dark:text-slate-200 dark:hover:bg-[#313c52] dark:active:bg-[#3a4761]'
                   }"
                 >
-                  ${tag}
+                  ${escapeHtml(tag)}
                 </button>
               `;
             }).join('')}
@@ -1773,7 +1774,7 @@ export class AppController {
         } else {
           this.favorites = saveFavorite(
             station,
-            'Casa',
+            QUICK_FAVORITE_TAGS[0],
             this.dataMode === 'online' ? 'online' : 'offline'
           );
         }
@@ -1801,7 +1802,7 @@ export class AppController {
       ?.addEventListener('submit', (e) => {
         e.preventDefault();
         const input = this.sheetBodyEl?.querySelector('#custom-tag-input') as HTMLInputElement | null;
-        const val = input?.value.trim() || 'Favorita';
+        const val = input?.value.trim() || '⭐ Favorita';
         this.customTagDraft = val;
         this.favorites = saveFavorite(
           station,

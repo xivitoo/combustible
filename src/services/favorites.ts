@@ -2,7 +2,7 @@ import type { FavoriteEntry, Station } from '../types';
 
 const FAVORITES_KEY = 'combustible_xiviot_favorites_v1';
 
-export const QUICK_FAVORITE_TAGS = ['Casa', 'Trabajo', 'Uni'];
+export const QUICK_FAVORITE_TAGS = ['🏠 Casa', '💼 Trabajo', '🎓 Uni'];
 
 export function getFavorites(): FavoriteEntry[] {
   try {
@@ -40,7 +40,7 @@ export function saveFavorite(
   tag: string,
   priceSource: 'online' | 'offline' = 'online'
 ): FavoriteEntry[] {
-  const cleanTag = tag.trim() || 'Favorita';
+  const cleanTag = tag.trim() || '⭐ Favorita';
   const current = getFavorites();
   const idx = current.findIndex((f) => f.id === station.id);
   const entry: FavoriteEntry = {
