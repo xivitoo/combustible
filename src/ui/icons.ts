@@ -1,10 +1,7 @@
-export const BRAND_LOGO_SVG = `
-<svg viewBox="0 0 64 64" fill="none" class="h-8 w-8" aria-hidden="true">
-  <rect width="64" height="64" rx="16" fill="#064E3B"/>
-  <path d="M32 10C21.5066 10 13 18.5066 13 29C13 41.3 28.4 53.1 31.1 55.1C31.63 55.49 32.37 55.49 32.9 55.1C35.6 53.1 51 41.3 51 29C51 18.5066 42.4934 10 32 10Z" fill="#F8FAFC"/>
-  <path d="M32 15.5C24.5442 15.5 18.5 21.5442 18.5 29C18.5 34.4 22.8 40.9 27.2 45.6C25.3 42.4 24.2 38.9 24.2 35.6C24.2 28.8 29.8 22.5 32 19.8C34.2 22.5 39.8 28.8 39.8 35.6C39.8 38.9 38.7 42.4 36.8 45.6C41.2 40.9 45.5 34.4 45.5 29C45.5 21.5442 39.4558 15.5 32 15.5Z" fill="#064E3B"/>
-  <path d="M32 22.8C29.8 26.2 26.2 31.1 26.2 35.6C26.2 39.2 28.8 42.1 32 42.1C35.2 42.1 37.8 39.2 37.8 35.6C37.8 31.1 34.2 26.2 32 22.8Z" fill="#34D399"/>
-</svg>`;
+export function brandLogoImg(cls = 'h-10 w-10 rounded-xl object-cover'): string {
+  const base = import.meta.env.BASE_URL || '/';
+  return `<img src="${base}assets/aistudio/combustible_c2c173af.png" alt="Combustible by XivIoT" class="${cls}" />`;
+}
 
 export function iconSvg(
   name:

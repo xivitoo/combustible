@@ -40,7 +40,7 @@ import type {
   Station,
   TabId,
 } from '../types';
-import { BRAND_LOGO_SVG, iconSvg } from './icons';
+import { brandLogoImg, iconSvg } from './icons';
 
 const STORAGE_PROVINCE_KEY = 'combustible_province_id_v1';
 const STORAGE_THEME_KEY = 'combustible_theme_v1';
@@ -459,9 +459,9 @@ export class AppController {
           </div>
 
           <!-- Cabecera Desktop: solo el logo, sin títulos ni descripciones -->
-          <div class="hidden lg:flex items-center border-b border-slate-200/80 px-5 py-3.5 dark:border-[#343e52]">
+          <div class="hidden lg:flex items-center border-b border-slate-200/80 px-5 py-3 dark:border-[#343e52]">
             <a href="./" aria-label="Combustible by XivIoT" class="inline-flex items-center">
-              ${BRAND_LOGO_SVG}
+              ${brandLogoImg('h-11 w-11 rounded-xl object-cover shadow-sm')}
             </a>
           </div>
 
@@ -553,8 +553,8 @@ export class AppController {
     this.bootOverlayEl.className =
       'fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-50/96 backdrop-blur-md dark:bg-[#1e2432]/96';
     this.bootOverlayEl.innerHTML = `
-      <div class="flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg">
-        ${BRAND_LOGO_SVG.replace('class="h-8 w-8"', 'class="h-14 w-14"')}
+      <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl shadow-lg">
+        ${brandLogoImg('h-20 w-20 object-cover')}
       </div>
       <div class="flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
         <span class="h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent dark:border-emerald-300 dark:border-t-transparent"></span>
@@ -931,7 +931,7 @@ export class AppController {
         <!-- Cabecera superior: solo el logo, sin títulos ni descripciones -->
         <header class="flex items-center justify-between gap-4">
           <div class="inline-flex items-center">
-            ${BRAND_LOGO_SVG}
+            ${brandLogoImg('h-12 w-12 rounded-xl object-cover shadow-sm')}
           </div>
           ${
             canDismiss
