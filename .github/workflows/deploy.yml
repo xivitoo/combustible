@@ -29,7 +29,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - name: Compute 6h cache bucket for stations backup
         id: cache-bucket
@@ -51,7 +50,12 @@ jobs:
         run: node scripts/update-stations.mjs --if-stale
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --legacy-peer-deps
+          else
+            npm install --legacy-peer-deps
+          fi
 
       - name: Build production bundle for GitHub Pages
         env:
