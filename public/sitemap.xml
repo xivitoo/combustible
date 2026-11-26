@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
   <url>
     <loc>https://xivitoo.github.io/combustible/</loc>
+    <lastmod>2026-11-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://xivitoo.github.io/combustible/og-card.jpg</image:loc>
+      <image:title>Combustible by XivIoT – Gasolineras más baratas en España</image:title>
+      <image:caption>Mapa interactivo con precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP y previsión a 7 días</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://xivitoo.github.io/combustible/pwa-512x512.png</image:loc>
+      <image:title>Logotipo oficial de Combustible by XivIoT</image:title>
+    </image:image>
   </url>
 </urlset>

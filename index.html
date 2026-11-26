@@ -3,54 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
-    <title>Combustible by XivIoT – Gasolineras baratas y precios en España</title>
+    <title>Combustible by XivIoT – Gasolineras baratas España</title>
     <meta
       name="description"
-      content="Consulta los precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en España. Mapa interactivo fluido, gasolineras más baratas, favoritas y modo Offline con Combustible by XivIoT."
+      content="Encuentra las gasolineras más baratas de España hoy: precios de Gasolina 95, Diésel A, Gasolina 98 y GLP, previsión a 7 días y mapa en modo Offline."
     />
     <meta
       name="keywords"
-      content="Combustible by XivIoT, gasolineras baratas España, precio gasolina 95 hoy, precio diesel A, gasolinera mas cercana, GLP España, mapa gasolineras"
+      content="Combustible by XivIoT, gasolineras baratas España, precio gasolina 95 hoy, precio diesel A hoy, gasolina 98, GLP España, gasolinera más barata cerca de mí, previsión precio gasolina 7 días, mapa gasolineras España"
     />
     <meta name="author" content="XivIoT" />
-    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="Combustible by XivIoT" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="format-detection" content="telephone=no" />
     <link rel="canonical" href="https://xivitoo.github.io/combustible/" />
+    <link rel="alternate" hreflang="es-ES" href="https://xivitoo.github.io/combustible/" />
+    <link rel="alternate" hreflang="x-default" href="https://xivitoo.github.io/combustible/" />
 
     <!-- PWA & Mobile -->
-    <meta name="theme-color" content="#640000" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1e2532" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#1D2839" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#182130" media="(prefers-color-scheme: dark)" />
+    <meta name="msapplication-TileColor" content="#1D2839" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Combustible" />
     <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="./pwa-192x192.png" />
-    <link rel="icon" href="./favicon.ico" sizes="32x32" />
-    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./pwa-512x512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
 
     <!-- OpenGraph -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_ES" />
     <meta property="og:site_name" content="Combustible by XivIoT" />
     <meta property="og:url" content="https://xivitoo.github.io/combustible/" />
-    <meta property="og:title" content="Combustible by XivIoT – Gasolineras baratas y precios en España" />
+    <meta property="og:title" content="Combustible by XivIoT – Gasolineras baratas España" />
     <meta
       property="og:description"
-      content="Encuentra al instante las gasolineras más baratas cerca de ti en toda España: Gasolina 95, Diésel A, Gasolina 98 y GLP."
+      content="Compara al instante las gasolineras más baratas cerca de ti en España: Gasolina 95, Diésel A, Gasolina 98 y GLP con tendencia de precios a 7 días."
     />
     <meta property="og:image" content="https://xivitoo.github.io/combustible/og-card.jpg" />
+    <meta property="og:image:secure_url" content="https://xivitoo.github.io/combustible/og-card.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Mapa interactivo de precios de carburantes en España — Combustible by XivIoT" />
+    <meta property="og:image:alt" content="Combustible by XivIoT: mapa interactivo de gasolineras baratas y previsión de precios en España" />
 
     <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Combustible by XivIoT – Gasolineras baratas en España" />
+    <meta name="twitter:url" content="https://xivitoo.github.io/combustible/" />
+    <meta name="twitter:title" content="Combustible by XivIoT – Gasolineras baratas España" />
     <meta
       name="twitter:description"
-      content="Compara precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en mapa interactivo móvil con soporte Offline."
+      content="Precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en España, ranking por ahorro, previsión semanal y soporte Offline."
     />
     <meta name="twitter:image" content="https://xivitoo.github.io/combustible/og-card.jpg" />
+    <meta name="twitter:image:alt" content="Logotipo y vista previa de Combustible by XivIoT" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -66,54 +79,110 @@
         "@context": "https://schema.org",
         "@graph": [
           {
+            "@type": "Organization",
+            "@id": "https://xivitoo.github.io/combustible/#organization",
+            "name": "XivIoT",
+            "url": "https://xivitoo.github.io/combustible/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://xivitoo.github.io/combustible/pwa-512x512.png",
+              "width": 512,
+              "height": 512
+            }
+          },
+          {
             "@type": "WebSite",
+            "@id": "https://xivitoo.github.io/combustible/#website",
             "name": "Combustible by XivIoT",
+            "alternateName": "Combustible XivIoT",
             "url": "https://xivitoo.github.io/combustible/",
             "inLanguage": "es-ES",
-            "description": "Buscador de gasolineras baratas y precios oficiales de carburantes en España por provincia y ubicación GPS."
+            "publisher": {
+              "@id": "https://xivitoo.github.io/combustible/#organization"
+            },
+            "description": "Buscador de gasolineras baratas, precios oficiales de carburantes y previsión a 7 días en todas las provincias de España."
           },
           {
             "@type": "WebApplication",
+            "@id": "https://xivitoo.github.io/combustible/#webapp",
             "name": "Combustible by XivIoT",
             "url": "https://xivitoo.github.io/combustible/",
             "applicationCategory": "NavigationApplication",
+            "applicationSubCategory": "Buscador de gasolineras y precios de combustible",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "inLanguage": "es-ES",
+            "image": "https://xivitoo.github.io/combustible/og-card.jpg",
+            "screenshot": "https://xivitoo.github.io/combustible/og-card.jpg",
             "offers": {
               "@type": "Offer",
               "price": "0",
               "priceCurrency": "EUR"
             },
             "author": {
-              "@type": "Organization",
-              "name": "XivIoT"
+              "@id": "https://xivitoo.github.io/combustible/#organization"
             },
             "featureList": [
-              "Precios oficiales actualizados de Gasolina 95, Diésel A, Gasolina 98 y GLP en España",
-              "Mapa interactivo fluido optimizado para móvil",
-              "Ordenación por más baratas cerca o más cercanas con tiempo en coche",
+              "Precios oficiales actualizados de Gasolina 95, Diésel A, Gasolina 98 y GLP en toda España",
+              "Previsión de tendencia de precios a 7 días para Gasolina 95, Diésel A, Gasolina 98 y GLP",
+              "Mapa interactivo de alto rendimiento optimizado para móvil y ordenador",
+              "Ordenación automática por gasolineras más baratas o más cercanas con tiempo estimado en coche",
               "Estaciones favoritas con etiquetas rápidas Casa, Trabajo y Uni",
-              "Instalable como aplicación web progresiva con soporte Offline"
+              "Aplicación web progresiva instalable con soporte Offline"
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://xivitoo.github.io/combustible/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Inicio",
+                "item": "https://xivitoo.github.io/combustible/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Gasolineras baratas en España",
+                "item": "https://xivitoo.github.io/combustible/"
+              }
             ]
           },
           {
             "@type": "FAQPage",
+            "@id": "https://xivitoo.github.io/combustible/#faq",
             "mainEntity": [
               {
                 "@type": "Question",
                 "name": "¿Qué carburantes puedo comparar en Combustible by XivIoT?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Puedes cambiar en un toque entre Gasolina 95, Diésel A, Gasolina 98 y GLP en el mapa principal, además de consultar todos los carburantes disponibles dentro de cada estación."
+                  "text": "Puedes cambiar en un toque entre Gasolina 95, Diésel A, Gasolina 98 y GLP directamente desde la barra superior del mapa y consultar todos los carburantes disponibles dentro de la ficha de cada estación de servicio."
                 }
               },
               {
                 "@type": "Question",
-                "name": "¿De dónde proceden los precios de las gasolineras?",
+                "name": "¿Cómo funciona la previsión de precios a 7 días?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Los datos proceden de los registros oficiales publicados por el Ministerio para la Transición Ecológica y el Reto Demográfico de España."
+                  "text": "Cada día analizamos la evolución reciente de los mercados energéticos internacionales en euros y la tendencia local de cada estación para estimar si el precio de Gasolina 95, Diésel A, Gasolina 98 o GLP tenderá a subir, mantenerse estable o bajar en los próximos 7 días."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "¿De dónde proceden los precios de las gasolineras en España?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Todos los precios mostrados proceden de los registros oficiales publicados diariamente por el Ministerio para la Transición Ecológica y el Reto Demográfico de España."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "¿Cómo encontrar la gasolinera más barata cerca de mí?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Selecciona tu provincia o activa el botón de ubicación GPS y abre la pestaña Baratas para ver al instante las estaciones ordenadas por menor precio, junto con la distancia y el tiempo estimado en coche."
                 }
               },
               {
@@ -121,7 +190,7 @@
                 "name": "¿Funciona Combustible by XivIoT sin conexión a internet?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sí. Combustible by XivIoT es instalable en tu móvil y conserva los últimos precios consultados recientemente en modo Offline junto con tus gasolineras favoritas."
+                  "text": "Sí. Combustible by XivIoT es una aplicación web progresiva instalable en Android, iOS y escritorio que conserva los últimos precios descargados y tus gasolineras favoritas en modo Offline."
                 }
               }
             ]
@@ -130,22 +199,36 @@
       }
     </script>
   </head>
-  <body class="bg-slate-50 text-slate-900 dark:bg-[#0b1311] dark:text-slate-100 antialiased selection:bg-emerald-500/20">
+  <body class="bg-slate-50 text-slate-900 dark:bg-[#1e2432] dark:text-slate-100 antialiased selection:bg-emerald-500/20">
     <div id="root">
-      <main class="mx-auto max-w-2xl px-6 py-12">
-        <header>
-          <h1 class="text-2xl font-bold tracking-tight">Combustible by XivIoT</h1>
-          <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Consulta los precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en todas las provincias de España. Encuentra las gasolineras más baratas cerca de ti, guarda tus favoritas y comparte ubicaciones al instante.
-          </p>
+      <main class="mx-auto max-w-3xl px-6 py-12">
+        <header class="flex items-center gap-4">
+          <img
+            src="./assets/aistudio/combustible_36ce1819.jpg"
+            alt="Logotipo de Combustible by XivIoT"
+            width="64"
+            height="64"
+            class="h-16 w-16 rounded-2xl object-cover shadow-md"
+          />
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight">Combustible by XivIoT – Gasolineras baratas en España</h1>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Compara precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en tiempo real y consulta la previsión a 7 días.
+            </p>
+          </div>
         </header>
-        <section class="mt-6 space-y-2 text-sm text-slate-600 dark:text-slate-400">
-          <h2>Funciones principales</h2>
-          <ul>
-            <li>Selector rápido por provincia en toda España.</li>
-            <li>Mapa interactivo con código de colores por precio relativo.</li>
-            <li>Lista de gasolineras más baratas, más cercanas y favoritas.</li>
-            <li>Aplicación web progresiva instalable con caché reciente Offline.</li>
+
+        <section class="mt-8 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Ahorra en cada repostaje en toda España</h2>
+          <p>
+            Localiza al instante las estaciones de servicio más económicas cerca de tu ubicación o en cualquiera de las 52 provincias y ciudades autónomas de España: Madrid, Barcelona, Valencia, Sevilla, Málaga, Alicante, Murcia, Zaragoza, Vizcaya, La Coruña, Asturias, Baleares, Las Palmas, Tenerife y muchas más.
+          </p>
+          <ul class="list-disc space-y-1.5 pl-5">
+            <li><strong>Mapa interactivo fluido:</strong> código de colores por precio relativo frente a la media provincial.</li>
+            <li><strong>Previsión a 7 días:</strong> estima si conviene repostar hoy o esperar en Gasolina 95, Diésel A, Gasolina 98 y GLP.</li>
+            <li><strong>Ranking de ahorro:</strong> ordena las gasolineras más baratas o más cercanas con tiempo estimado en coche y enlace directo a Google Maps o Apple Maps.</li>
+            <li><strong>Favoritas con etiquetas:</strong> guarda tus surtidores habituales como 🏠 Casa, 💼 Trabajo o 🎓 Uni.</li>
+            <li><strong>Instalable y Offline:</strong> funciona como aplicación en tu móvil conservando los últimos datos consultados sin cobertura.</li>
           </ul>
         </section>
       </main>

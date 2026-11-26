@@ -1,6 +1,6 @@
 export function brandLogoImg(cls = 'h-10 w-10 rounded-xl object-cover'): string {
   const base = import.meta.env.BASE_URL || '/';
-  return `<img src="${base}assets/aistudio/combustible_c2c173af.png" alt="Combustible by XivIoT" class="${cls}" />`;
+  return `<img src="${base}assets/aistudio/combustible_36ce1819.jpg" alt="Combustible by XivIoT" decoding="async" class="${cls}" />`;
 }
 
 export function iconSvg(

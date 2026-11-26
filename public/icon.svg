@@ -1,4 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="14" fill="#640000"/>
-  <path d="M32.4 12C27.5 20.5 20.5 27.2 20.5 36.2C20.5 42.5 24.4 47.4 29.1 48.7C27.6 45.8 27.2 42.1 28.6 38.2C30.1 34.1 33.4 30.8 35.2 26.4C35.8 29.6 37.8 33.1 37.8 37.4C37.8 41.2 35.9 44.6 33.2 46.8C38.8 46.2 43.5 41.4 43.5 34.8C43.5 26.2 36.2 18.6 32.4 12Z" fill="#FF5757"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#222E42"/>
+      <stop offset="100%" stop-color="#192334"/>
+    </linearGradient>
+    <linearGradient id="road" x1="12" y1="50" x2="52" y2="12" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <path d="M16 17L47 47M48 15L15 48" stroke="url(#road)" stroke-width="6.5" stroke-linecap="round"/>
+  <path d="M47 41.5C47 41.5 52 46.8 52 49.8C52 52.6 49.8 54.8 47 54.8C44.2 54.8 42 52.6 42 49.8C42 46.8 47 41.5 47 41.5Z" fill="#22D3EE"/>
 </svg>

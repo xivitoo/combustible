@@ -16,14 +16,14 @@ function buildManifest(base: string) {
     name: 'Combustible by XivIoT',
     short_name: 'Combustible',
     description:
-      'Precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en España. Mapa interactivo, gasolineras baratas y favoritas.',
+      'Precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en España. Mapa interactivo, previsión a 7 días, gasolineras baratas y modo Offline.',
     lang: 'es-ES',
     start_url: base,
     scope: base,
     display: 'standalone',
     orientation: 'portrait',
-    theme_color: '#640000',
-    background_color: '#640000',
+    theme_color: '#1D2839',
+    background_color: '#1D2839',
     categories: ['navigation', 'utilities', 'travel'],
     icons: [
       {
@@ -78,7 +78,7 @@ function combustiblePwaPlugin(base: string): Plugin {
         `${base}pwa-192x192.png`,
         `${base}pwa-512x512.png`,
         `${base}apple-touch-icon.png`,
-        `${base}assets/aistudio/combustible_c2c173af.png`,
+        `${base}assets/aistudio/combustible_36ce1819.jpg`,
       ]);
 
       const assetsDir = path.join(distDir, 'assets');

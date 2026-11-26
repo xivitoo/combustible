@@ -1,6 +1,6 @@
 {
   "name": "Combustible by XivIoT",
-  "description": "Precios oficiales de Gasolina 95, Diésel A, Gasolina 98 y GLP en España con mapa interactivo, gasolineras baratas, favoritas y soporte Offline.",
+  "description": "Encuentra las gasolineras más baratas de España hoy: precios de Gasolina 95, Diésel A, Gasolina 98 y GLP, previsión a 7 días y mapa en modo Offline.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
