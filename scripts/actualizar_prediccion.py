@@ -25,6 +25,8 @@ import io
 import json
 import math
 import os
+import ssl
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -47,6 +49,8 @@ MITECO_URL = (
     "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/"
     "PreciosCarburantes/EstacionesTerrestres/"
 )
+FUEL_PROXY_URL = os.environ.get("FUEL_PROXY_URL", "").strip()
+LOCAL_STATIONS_FALLBACK = OUTPUT_DIR / "stations.json"
 FRANKFURTER_URL_TPL = "https://api.frankfurter.dev/v1/{start_date}..?base=EUR&symbols=USD"
 FRED_CRUDE_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU"
 
@@ -87,8 +91,28 @@ AJUSTE_DIA_SEMANA = {
 }
 
 
+class MitecoTLSAdapter(HTTPAdapter):
+    """
+    Adaptador TLS tolerante para servidores institucionales españoles (OpenSSL 3 / TLS 1.2):
+    fuerza TLS 1.2, SECLEVEL=1 (para DHE-RSA) e ignora EOF inesperado sin close_notify.
+    """
+
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> Any:
+        ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        ctx.options |= getattr(ssl, "OP_NO_TLSv1_3", 0)
+        ctx.options |= getattr(ssl, "OP_IGNORE_UNEXPECTED_EOF", 0)
+        try:
+            ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+        except ssl.SSLError:
+            pass
+        kwargs["ssl_context"] = ctx
+        return super().init_poolmanager(*args, **kwargs)
+
+
 def build_http_session() -> requests.Session:
-    """Crea una sesión HTTP con User-Agent y reintentos automáticos."""
+    """Crea una sesión HTTP con User-Agent, adaptador TLS compatible y reintentos."""
     session = requests.Session()
     session.headers.update(HTTP_HEADERS)
 
@@ -101,9 +125,11 @@ def build_http_session() -> requests.Session:
         allowed_methods=["GET"],
         raise_on_status=False,
     )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
+    default_adapter = HTTPAdapter(max_retries=retry_strategy)
+    miteco_adapter = MitecoTLSAdapter(max_retries=retry_strategy)
+    session.mount("https://sedeaplicaciones.minetur.gob.es/", miteco_adapter)
+    session.mount("https://", default_adapter)
+    session.mount("http://", default_adapter)
     return session
 
 
@@ -138,16 +164,43 @@ def parse_spanish_coord(raw: Any) -> float | None:
         return None
 
 
-def fetch_miteco_stations(session: requests.Session) -> tuple[list[dict[str, Any]], str]:
-    """Descarga y limpia Gasolina 95, Diésel A, Gasolina 98 y GLP del MITECO."""
-    resp = session.get(MITECO_URL, timeout=(12, 45))
-    resp.raise_for_status()
-    payload = resp.json()
+def parse_miteco_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
+    """Normaliza tanto el JSON oficial del MITECO como el respaldo compacto stations.json."""
+    if isinstance(payload.get("stations"), list) and not payload.get("ListaEESSPrecio"):
+        stations: list[dict[str, Any]] = []
+        fecha = str(payload.get("fecha") or "")
+        for item in payload["stations"]:
+            ideess = str(item.get("id") or "").strip()
+            lat = item.get("lat")
+            lng = item.get("lng")
+            if not ideess or not isinstance(lat, (int, float)) or not isinstance(lng, (int, float)):
+                continue
+            p_g95 = parse_spanish_float(item.get("g95"))
+            p_goa = parse_spanish_float(item.get("da"))
+            p_g98 = parse_spanish_float(item.get("g98"))
+            p_glp = parse_spanish_float(item.get("glp"))
+            if p_g95 is None and p_goa is None and p_g98 is None and p_glp is None:
+                continue
+            stations.append(
+                {
+                    "ideess": ideess,
+                    "rotulo": str(item.get("r") or "").strip(),
+                    "provincia": str(item.get("pn") or "").strip(),
+                    "municipio": str(item.get("m") or "").strip(),
+                    "lat": round(float(lat), 6),
+                    "lng": round(float(lng), 6),
+                    "p_g95": round(p_g95, 3) if p_g95 is not None else None,
+                    "p_goa": round(p_goa, 3) if p_goa is not None else None,
+                    "p_g98": round(p_g98, 3) if p_g98 is not None else None,
+                    "p_glp": round(p_glp, 3) if p_glp is not None else None,
+                }
+            )
+        return stations, fecha
 
     raw_list = payload.get("ListaEESSPrecio") or []
     fecha_miteco = str(payload.get("Fecha") or "")
 
-    stations: list[dict[str, Any]] = []
+    stations = []
     for item in raw_list:
         ideess = str(item.get("IDEESS") or "").strip()
         if not ideess:
@@ -181,10 +234,77 @@ def fetch_miteco_stations(session: requests.Session) -> tuple[list[dict[str, Any
             }
         )
 
-    if not stations:
-        raise RuntimeError("La respuesta del MITECO no devolvió estaciones válidas.")
-
     return stations, fecha_miteco
+
+
+def fetch_miteco_stations(session: requests.Session) -> tuple[list[dict[str, Any]], str]:
+    """
+    Descarga Gasolina 95, Diésel A, Gasolina 98 y GLP del MITECO.
+    Incluye adaptador TLS 1.2, fallback con curl, proxy opcional y respaldo local.
+    """
+    errors: list[str] = []
+
+    # 1. Petición directa con TLS 1.2 + SECLEVEL=1
+    try:
+        resp = session.get(MITECO_URL, timeout=(15, 50))
+        resp.raise_for_status()
+        stations, fecha = parse_miteco_payload(resp.json())
+        if stations:
+            return stations, fecha
+    except Exception as exc:
+        errors.append(f"directo: {exc}")
+
+    # 2. Fallback con curl (libcurl negocia cifrados/ALPN de forma distinta a urllib3)
+    try:
+        proc = subprocess.run(
+            [
+                "curl",
+                "-fsSL",
+                "--tlsv1.2",
+                "--http1.1",
+                "--max-time",
+                "45",
+                "-A",
+                HTTP_HEADERS["User-Agent"],
+                MITECO_URL,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        stations, fecha = parse_miteco_payload(json.loads(proc.stdout))
+        if stations:
+            print("Descarga MITECO completada mediante fallback curl.")
+            return stations, fecha
+    except Exception as exc:
+        errors.append(f"curl: {exc}")
+
+    # 3. Fallback a Cloudflare Worker si está configurado FUEL_PROXY_URL
+    if FUEL_PROXY_URL:
+        try:
+            resp = session.get(FUEL_PROXY_URL, timeout=(15, 45))
+            resp.raise_for_status()
+            stations, fecha = parse_miteco_payload(resp.json())
+            if stations:
+                print("Descarga MITECO completada mediante proxy.")
+                return stations, fecha
+        except Exception as exc:
+            errors.append(f"proxy: {exc}")
+
+    # 4. Último recurso: respaldo estático local del repositorio
+    if LOCAL_STATIONS_FALLBACK.exists():
+        try:
+            with open(LOCAL_STATIONS_FALLBACK, "r", encoding="utf-8") as fh:
+                stations, fecha = parse_miteco_payload(json.load(fh))
+            if stations:
+                print("Aviso: usando respaldo local stations.json tras fallo temporal del origen.")
+                return stations, fecha
+        except Exception as exc:
+            errors.append(f"local: {exc}")
+
+    raise RuntimeError(
+        "No se pudieron obtener estaciones válidas (" + " | ".join(errors) + ")"
+    )
 
 
 def fetch_macro_series_15d(session: requests.Session, today_utc: datetime) -> pd.DataFrame:

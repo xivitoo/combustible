@@ -34,6 +34,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Ejecutar modelo de predicción a 7 días
+        env:
+          FUEL_PROXY_URL: ${{ secrets.VITE_FUEL_PROXY_URL || vars.VITE_FUEL_PROXY_URL || '' }}
         run: python scripts/actualizar_prediccion.py
 
       - name: Commit y push automático si hay cambios en public/data
