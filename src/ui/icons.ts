@@ -25,6 +25,9 @@ export function iconSvg(
     | 'download'
     | 'refresh'
     | 'trash'
+    | 'trend-up'
+    | 'trend-down'
+    | 'trend-flat'
     | 'x',
   cls = 'w-5 h-5'
 ): string {
@@ -61,6 +64,12 @@ export function iconSvg(
       '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
     trash:
       '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+    'trend-up':
+      '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+    'trend-down':
+      '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+    'trend-flat':
+      '<line x1="5" x2="19" y1="12" y2="12"/><polyline points="15 8 19 12 15 16"/>',
     x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   };
 

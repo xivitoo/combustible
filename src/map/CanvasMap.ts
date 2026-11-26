@@ -54,6 +54,13 @@ export class CanvasMap {
   private p75 = 0;
 
   private tiles = new Map<string, TileEntry>();
+  private drawnLabelHits: Array<{
+    station: Station;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  }> = [];
   private rafScheduled = false;
   private animFrameId: number | null = null;
 
@@ -455,7 +462,7 @@ export class CanvasMap {
           const dx = x - this.lastPointerX;
           const dy = y - this.lastPointerY;
 
-          if (Math.hypot(x - this.panStartX, y - this.panStartY) > 7) {
+          if (Math.hypot(x - this.panStartX, y - this.panStartY) > 12) {
             this.panMoved = true;
           }
 
@@ -495,7 +502,7 @@ export class CanvasMap {
           this.isPanning = false;
           const now = performance.now();
 
-          if (!this.panMoved && now - this.panStartTime < 280) {
+          if (!this.panMoved && now - this.panStartTime < 450) {
             const hit = this.hitTestStation(this.panStartX, this.panStartY);
             if (hit) {
               this.onSelectStation(hit);
@@ -546,7 +553,7 @@ export class CanvasMap {
       const y = e.clientY - rect.top;
       const dx = x - this.lastPointerX;
       const dy = y - this.lastPointerY;
-      if (Math.hypot(x - this.panStartX, y - this.panStartY) > 5) {
+      if (Math.hypot(x - this.panStartX, y - this.panStartY) > 8) {
         this.panMoved = true;
       }
       this.panByPixels(dx, dy);
@@ -619,18 +626,31 @@ export class CanvasMap {
   }
 
   private hitTestStation(sx: number, sy: number): Station | null {
+    // 1. Comprobar primero si se pulsó directamente sobre una etiqueta de precio visible
+    for (const label of this.drawnLabelHits) {
+      if (
+        sx >= label.x1 - 4 &&
+        sx <= label.x2 + 4 &&
+        sy >= label.y1 - 4 &&
+        sy <= label.y2 + 4
+      ) {
+        return label.station;
+      }
+    }
+
+    // 2. Comprobar puntos de estaciones cercanos
     const worldSize = this.worldPixelSize(this.zoom);
     const centerNorm = this.latLngToNorm(this.centerLat, this.centerLng);
     const halfW = this.width / 2;
     const halfH = this.height / 2;
 
     let best: Station | null = null;
-    let bestDist = 30; // ~60px diámetro táctil
+    let bestDist = 34;
 
     for (const m of this.preparedMarkers) {
       const px = halfW + (m.normX - centerNorm.x) * worldSize;
       const py = halfH + (m.normY - centerNorm.y) * worldSize;
-      if (px < -30 || px > this.width + 30 || py < -30 || py > this.height + 30) {
+      if (px < -34 || px > this.width + 34 || py < -34 || py > this.height + 34) {
         continue;
       }
       const d = Math.hypot(px - sx, py - sy);
@@ -912,6 +932,7 @@ export class CanvasMap {
     }
 
     // 4. Etiquetas de precio junto al punto al hacer zoom (con anti-solapamiento)
+    this.drawnLabelHits = [];
     const showZoomLabels = this.zoom >= 11.4;
     if (showZoomLabels || this.selectedId || this.favoriteIds.size > 0) {
       const labelCandidates = visible
@@ -955,6 +976,13 @@ export class CanvasMap {
         if (collides && !item.isSelected) continue;
 
         occupied.push({ x1: bx, y1: by, x2: bx + boxW, y2: by + boxH });
+        this.drawnLabelHits.push({
+          station: item.marker.station,
+          x1: bx,
+          y1: by,
+          x2: bx + boxW,
+          y2: by + boxH,
+        });
         drawnLabels++;
 
         const color = this.getMarkerColor(item.marker.price);

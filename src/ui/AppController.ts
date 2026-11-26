@@ -23,6 +23,11 @@ import {
   loadStaticBackupProvince,
 } from '../services/fuelData';
 import {
+  loadFuelPredictions,
+  type FuelPredictionPayload,
+  type StationPrediction,
+} from '../services/prediction';
+import {
   estimateDriveMinutes,
   findNearestProvince,
   haversineKm,
@@ -89,6 +94,7 @@ export class AppController {
 
   private p30 = 0;
   private p75 = 0;
+  private predictionData: FuelPredictionPayload | null = null;
 
   private mapCanvasEl: HTMLCanvasElement | null = null;
   private topControlsEl: HTMLElement | null = null;
@@ -144,8 +150,9 @@ export class AppController {
       this.map.setTheme(this.isDark);
     }
 
-    // Comprobar geolocalización en segundo plano sin bloquear la carga inicial
+    // Comprobar geolocalización y predicción semanal en segundo plano sin bloquear la carga inicial
     this.initGrantedGpsInBackground(Boolean(deepStationId));
+    this.loadPredictionsInBackground();
 
     if (deepStationId) {
       await this.handleDeepLinkStation(deepStationId, savedProvince);
@@ -197,6 +204,15 @@ export class AppController {
       }
     } catch {
       // Continuar sin GPS
+    }
+  }
+
+  private async loadPredictionsInBackground(): Promise<void> {
+    const payload = await loadFuelPredictions();
+    if (!payload) return;
+    this.predictionData = payload;
+    if (!this.isBootstrapping && this.selectedStation) {
+      this.renderStationDetail(this.selectedStation);
     }
   }
 
@@ -1562,8 +1578,173 @@ export class AppController {
     });
   }
 
+  private buildFuelPredictionMessage(
+    trend: 'subida' | 'estable' | 'bajada',
+    delta: number
+  ): string {
+    const cents = Math.abs(delta) * 100;
+    const low = Math.max(1, Math.floor(cents));
+    const high = Math.max(low + 1, Math.ceil(cents + 0.5));
+    if (trend === 'subida') {
+      return `Reposta hoy: se espera una subida de ~${low}-${high} cént./L esta semana`;
+    }
+    if (trend === 'bajada') {
+      return `Espera si puedes: posible bajada de ~${low}-${high} cént./L en 7 días`;
+    }
+    return 'Precios estables esta semana: variación estimada menor de 1,5 cént./L';
+  }
+
+  private renderStationPredictionBlock(stationId: string): string {
+    try {
+      const pred: StationPrediction | undefined =
+        this.predictionData?.estaciones?.[stationId];
+      if (!pred) return '';
+
+      const activeVarMap: Record<PrimaryFuelKey, number | null> = {
+        g95: typeof pred.var_g95 === 'number' ? pred.var_g95 : null,
+        da: typeof pred.var_goa === 'number' ? pred.var_goa : null,
+        g98: typeof pred.var_g98 === 'number' ? pred.var_g98 : null,
+        glp: typeof pred.var_glp === 'number' ? pred.var_glp : null,
+      };
+
+      const activeDelta = activeVarMap[this.activeFuel];
+      const fallbackDelta =
+        typeof pred.variacion_est === 'number' && Number.isFinite(pred.variacion_est)
+          ? pred.variacion_est
+          : 0;
+      const effectiveDelta =
+        typeof activeDelta === 'number' && Number.isFinite(activeDelta)
+          ? activeDelta
+          : fallbackDelta;
+
+      const effectiveTrend: 'subida' | 'estable' | 'bajada' =
+        typeof activeDelta === 'number' && Number.isFinite(activeDelta)
+          ? effectiveDelta > 0.015
+            ? 'subida'
+            : effectiveDelta < -0.015
+              ? 'bajada'
+              : 'estable'
+          : pred.tendencia || 'estable';
+
+      const effectiveMessage =
+        typeof activeDelta === 'number' && Number.isFinite(activeDelta)
+          ? this.buildFuelPredictionMessage(effectiveTrend, effectiveDelta)
+          : pred.mensaje || this.buildFuelPredictionMessage(effectiveTrend, effectiveDelta);
+
+      const trendMap = {
+        subida: {
+          label: 'Subida prevista',
+          icon: 'trend-up' as const,
+          badge:
+            'bg-rose-100 text-rose-800 dark:bg-rose-300/20 dark:text-rose-200',
+          border:
+            'border-rose-200/80 bg-rose-50/50 dark:border-rose-300/25 dark:bg-rose-300/10',
+        },
+        bajada: {
+          label: 'Bajada prevista',
+          icon: 'trend-down' as const,
+          badge:
+            'bg-emerald-100 text-emerald-800 dark:bg-emerald-300/20 dark:text-emerald-200',
+          border:
+            'border-emerald-200/80 bg-emerald-50/50 dark:border-emerald-300/25 dark:bg-emerald-300/10',
+        },
+        estable: {
+          label: 'Precio estable',
+          icon: 'trend-flat' as const,
+          badge:
+            'bg-sky-100 text-sky-800 dark:bg-sky-300/20 dark:text-sky-200',
+          border:
+            'border-slate-200/80 bg-slate-50/70 dark:border-[#343e52] dark:bg-[#1e2432]',
+        },
+      };
+
+      const meta = trendMap[effectiveTrend] || trendMap.estable;
+      const sign = effectiveDelta > 0 ? '+' : '';
+      const deltaStr = `${sign}${effectiveDelta.toFixed(3).replace('.', ',')} €/L`;
+      const confLabel =
+        pred.confianza === 'alta'
+          ? 'Confianza alta'
+          : pred.confianza === 'media'
+            ? 'Confianza media'
+            : 'Confianza inicial';
+
+      const formatRange = (range: [number, number] | null | undefined): string => {
+        if (
+          !Array.isArray(range) ||
+          range.length < 2 ||
+          typeof range[0] !== 'number' ||
+          typeof range[1] !== 'number'
+        ) {
+          return '';
+        }
+        return `${formatPrice(range[0]).replace(' €', '')} – ${formatPrice(range[1])}`;
+      };
+
+      const fuelRows: Array<{
+        key: PrimaryFuelKey;
+        label: string;
+        range: [number, number] | null | undefined;
+      }> = [
+        { key: 'g95', label: 'Gasolina 95', range: pred.rango_g95 },
+        { key: 'da', label: 'Diésel A', range: pred.rango_goa },
+        { key: 'g98', label: 'Gasolina 98', range: pred.rango_g98 },
+        { key: 'glp', label: 'GLP', range: pred.rango_glp },
+      ];
+
+      const rangeRows = fuelRows
+        .map((row) => ({ row, text: formatRange(row.range) }))
+        .filter((item) => Boolean(item.text))
+        .map(({ row, text }) => {
+          const isCurrent = row.key === this.activeFuel;
+          return `<div class="flex items-center justify-between text-xs ${
+            isCurrent ? 'font-semibold text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'
+          }"><span>${row.label}</span><span class="font-mono-num font-semibold text-slate-900 dark:text-slate-100">${text}</span></div>`;
+        });
+
+      const rawMarketPct = this.predictionData?.variacion_mercado_7d_pct;
+      const marketPct =
+        typeof rawMarketPct === 'number' && Number.isFinite(rawMarketPct)
+          ? rawMarketPct
+          : 0;
+
+      return `
+        <div class="rounded-2xl border p-3.5 ${meta.border}">
+          <div class="flex items-center justify-between gap-2">
+            <div class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold ${meta.badge}">
+              ${iconSvg(meta.icon, 'h-3.5 w-3.5')}
+              <span>${meta.label} · 7 días</span>
+            </div>
+            <span class="font-mono-num text-xs font-bold text-slate-800 dark:text-slate-100">
+              ${deltaStr}
+            </span>
+          </div>
+
+          <p class="mt-2 text-xs font-medium leading-relaxed text-slate-800 dark:text-slate-100">
+            ${escapeHtml(effectiveMessage)}
+          </p>
+
+          ${
+            rangeRows.length > 0
+              ? `<div class="mt-2.5 space-y-1 border-t border-slate-200/70 pt-2 dark:border-white/10">
+                  ${rangeRows.join('')}
+                </div>`
+              : ''
+          }
+
+          <div class="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-300/80">
+            <span>${confLabel}</span>
+            <span>Mercado 7d: ${marketPct >= 0 ? '+' : ''}${marketPct.toFixed(2).replace('.', ',')}%</span>
+          </div>
+        </div>
+      `;
+    } catch {
+      return '';
+    }
+  }
+
   private renderStationDetail(station: Station): void {
     if (!this.sheetBodyEl) return;
+    this.sheetBodyEl.scrollTop = 0;
 
     const fav = getFavorite(station.id);
     const isFav = Boolean(fav);
@@ -1684,6 +1865,8 @@ export class AppController {
             </button>
           </form>
         </div>
+
+        ${this.renderStationPredictionBlock(station.id)}
 
         <!-- Tabla completa de carburantes -->
         <div>

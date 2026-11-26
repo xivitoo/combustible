@@ -1,0 +1,54 @@
+name: Actualizar predicción combustible
+
+on:
+  schedule:
+    # Todos los días a las 17:30 UTC (tras el cierre diario de mercados y actualización de MITECO)
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fuel-prediction-update
+  cancel-in-progress: false
+
+jobs:
+  update-prediction:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias mínimas
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ejecutar modelo de predicción a 7 días
+        run: python scripts/actualizar_prediccion.py
+
+      - name: Commit y push automático si hay cambios en public/data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Nota: si cambias OUTPUT_DIR a `data/` o `docs/data/`, ajusta estas 3 rutas
+          git add public/data/historico_macro.csv public/data/ventana_14d.json.gz public/data/prediccion_actual.json
+
+          if git diff --cached --quiet; then
+            echo "Sin cambios en los archivos de predicción."
+            exit 0
+          fi
+
+          git commit -m "chore(data): actualizar predicción combustible 7d ($(date -u +'%Y-%m-%d'))"
+          git pull --rebase --autostash origin "${{ github.ref_name }}"
+          git push origin HEAD:"${{ github.ref_name }}"

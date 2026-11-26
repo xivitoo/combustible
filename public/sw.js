@@ -68,10 +68,12 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Nunca interceptar consultas de precios Online ni teselas CartoDB
-  // (CartoDB ya envía Cache-Control immutable de 30 días y evitará net::ERR_FAILED si se cancela una tesela)
+  // Nunca interceptar consultas de precios Online, teselas CartoDB ni módulos de desarrollo Vite
   if (
     url.pathname.includes('/api/fuel/') ||
+    url.pathname.includes('/@vite/') ||
+    url.pathname.includes('/src/') ||
+    url.pathname.includes('/node_modules/') ||
     url.hostname.includes('workers.dev') ||
     url.hostname.includes('minetur.gob.es') ||
     url.hostname.endsWith('basemaps.cartocdn.com')
@@ -97,6 +99,25 @@ self.addEventListener('fetch', (event) => {
             (await caches.match(BASE_PATH));
           return cached || Response.error();
         })
+    );
+    return;
+  }
+
+  // Predicción diaria: Network-first para mostrar siempre la previsión más reciente cuando haya conexión
+  if (url.origin === self.location.origin && url.pathname.endsWith('/data/prediccion_actual.json')) {
+    event.respondWith(
+      caches.open(RUNTIME_CACHE).then(async (cache) => {
+        try {
+          const res = await fetch(request);
+          if (res.ok) {
+            cache.put(request, res.clone());
+          }
+          return res;
+        } catch {
+          const cached = await cache.match(request);
+          return cached || Response.error();
+        }
+      })
     );
     return;
   }

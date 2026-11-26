@@ -7,6 +7,10 @@ on:
   schedule:
     # Actualización programada cada 6 horas del respaldo estático
     - cron: '15 */6 * * *'
+  workflow_run:
+    workflows: ["Actualizar predicción combustible"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -20,6 +24,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -40,7 +45,9 @@ jobs:
         id: cache-stations
         uses: actions/cache@v4
         with:
-          path: public/data
+          path: |
+            public/data/stations.json
+            public/data/provinces
           key: stations-json-${{ steps.cache-bucket.outputs.bucket }}
           restore-keys: |
             stations-json-

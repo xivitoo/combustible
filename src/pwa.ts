@@ -42,12 +42,21 @@ export function initPWA(onStateChange: (state: PWAState) => void) {
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      const base = import.meta.env.BASE_URL || '/';
-      navigator.serviceWorker
-        .register(`${base}sw.js`, { scope: base })
-        .catch(() => {
-          // Silencioso en entornos sin soporte SW
-        });
+      if (import.meta.env.PROD) {
+        const base = import.meta.env.BASE_URL || '/';
+        navigator.serviceWorker
+          .register(`${base}sw.js`, { scope: base })
+          .catch(() => {
+            // Silencioso en entornos sin soporte SW
+          });
+      } else {
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+          .catch(() => {
+            // Ignorar en desarrollo
+          });
+      }
     });
   }
 
