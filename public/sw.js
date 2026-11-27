@@ -28,7 +28,7 @@ function getPrecacheUrls() {
       `${BASE_PATH}pwa-192x192.png`,
       `${BASE_PATH}pwa-512x512.png`,
       `${BASE_PATH}apple-touch-icon.png`,
-      `${BASE_PATH}assets/aistudio/combustible_36ce1819.jpg`,
+      `${BASE_PATH}assets/aistudio/combustible_54e5caba.jpg`,
     ];
   }
   return JSON.parse(raw);

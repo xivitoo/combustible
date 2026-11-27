@@ -22,8 +22,8 @@ function buildManifest(base: string) {
     scope: base,
     display: 'standalone',
     orientation: 'portrait',
-    theme_color: '#1D2839',
-    background_color: '#1D2839',
+    theme_color: '#000000',
+    background_color: '#000000',
     categories: ['navigation', 'utilities', 'travel'],
     icons: [
       {
@@ -78,7 +78,7 @@ function combustiblePwaPlugin(base: string): Plugin {
         `${base}pwa-192x192.png`,
         `${base}pwa-512x512.png`,
         `${base}apple-touch-icon.png`,
-        `${base}assets/aistudio/combustible_36ce1819.jpg`,
+        `${base}assets/aistudio/combustible_54e5caba.jpg`,
       ]);
 
       const assetsDir = path.join(distDir, 'assets');
